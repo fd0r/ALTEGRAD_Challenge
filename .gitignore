@@ -7,3 +7,4 @@ edgelist.txt
 __pycache__/
 
 .~fasttext.ipynb
+*.DS_Store
