@@ -11,7 +11,7 @@ from sklearn.linear_model import LogisticRegression
 from tqdm import tqdm
 
 
-def get_raw_data():
+def get_raw_data(encoding="utf-8"):  #'latin-1'
     # Read training data
     with open("train.csv", 'r') as f:
         train_data = f.read().splitlines()
@@ -35,7 +35,7 @@ def get_raw_data():
     text = dict()
     filenames = os.listdir('text/text')
     for filename in tqdm(filenames):
-        with codecs.open(path.join('text/text/', filename), encoding='latin-1') as f: 
+        with codecs.open(path.join('text/text/', filename), encoding=encoding) as f: 
             text[filename] = f.read().replace("\n", "").lower()
 
     train_data = list()

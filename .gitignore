@@ -5,3 +5,5 @@ edgelist.txt
 .ipynb_checkpoints/
 
 __pycache__/
+
+.~fasttext.ipynb
