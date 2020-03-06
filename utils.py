@@ -7,6 +7,20 @@ import os
 import codecs
 import networkx as nx
 from tqdm import tqdm
+from bs4 import BeautifulSoup
+from bs4.element import Comment
+from markdown import markdown
+from nltk.tokenize import TweetTokenizer
+from nltk.corpus import stopwords
+import re
+from collections import Counter
+import signal
+from contextlib import contextmanager
+import json
+import operator
+import mistune
+
+
 
 
 def loss_function(y_true, predictions):
@@ -37,7 +51,7 @@ def visualize_embeddings(embeddings, n, n_features):
     fig.set_size_inches(20, 15)
     plt.show()
 
-def load_data(path='./', text=False):
+def load_data(path='./', text=False, max_time_per_doc=30):
     with open(os.path.join(path, 'train_noduplicates.csv'), 'r') as f:
         train_data = f.read().splitlines()
 
@@ -59,17 +73,34 @@ def load_data(path='./', text=False):
 
     if text==True:
         documents = dict()
-        filenames = os.listdir(os.path.join(path, 'text/text'))
+        filenames = os.listdir(os.path.join(path, 'text'))
 
+        tokenizer = TweetTokenizer()
         print('Loading text documents')
         for filename in tqdm(filenames):
-            with codecs.open(os.path.join(path, 'text/text/', filename), encoding='latin-1') as f: 
-                documents[filename] = f.read().replace("\n", "").lower()
-
-        for host in train_hosts + test_hosts:
-            if not host in documents.keys():
-                documents[host] = ''
-        
+                # try:
+                #     with codecs.open(os.path.join(path, 'text/', filename), encoding='UTF-8') as f:
+                #         try:
+                #             with time_limit(max_time_per_doc):
+                #                 html = mistune.html(f.read())
+                #                 print(BeautifulSoup(html))
+                #                 documents[filename] = tokenizer.tokenize(re.sub(' +', ' ', text_from_html(html)))
+                #         except TimeoutException:
+                #             print(filename)
+                #             documents[filename] = ['']
+            with codecs.open(os.path.join(path, 'text/', filename), encoding='latin-1') as f: 
+                try:
+                    with time_limit(max_time_per_doc):
+                        html = mistune.markdown(f.read())
+                        documents[filename] = tokenizer.tokenize(re.sub(' +', ' ', text_from_html(html)))
+                except TimeoutException:
+                    print(filename)
+                    try:
+                        with time_limit(max_time_per_doc):
+                            documents[filename] = tokenizer.tokenize(f.read().replace("\n", "").strip().lower())
+                    except TimeoutException:
+                        print(filename)
+                        documents[filename] = ['']
         return train_hosts, test_hosts, y_train, G, documents
     return train_hosts, test_hosts, y_train, G
 
@@ -97,7 +128,7 @@ def get_raw_data(encoding="utf-8"):  #'latin-1'
     text = dict()
     filenames = os.listdir('text/text')
     for filename in tqdm(filenames):
-        with codecs.open(path.join('text/text/', filename), encoding=encoding) as f: 
+        with codecs.open(os.path.join('text/text/', filename), encoding=encoding) as f: 
             text[filename] = f.read().replace("\n", "").lower()
 
     train_data = list()
@@ -118,7 +149,7 @@ def get_raw_data(encoding="utf-8"):  #'latin-1'
     return train_data, test_data, y_train, G, train_hosts, test_hosts
 
 
-def dump_prediction(y_pred, name="baseline"):
+def dump_prediction(clf, y_pred, test_hosts, name="baseline"):
     with open('{}.csv'.format(name), 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')
         lst = clf.classes_.tolist()
@@ -128,3 +159,80 @@ def dump_prediction(y_pred, name="baseline"):
             lst = y_pred[i,:].tolist()
             lst.insert(0, test_host)
             writer.writerow(lst)
+
+
+def make_vocab(documents, min_freq=15, path_write='../data'):
+    tokens = [token for tokens in documents.values() for token in tokens]
+
+    counts = dict(Counter(tokens))
+    stop_words = list(stopwords.words('english')) + list(stopwords.words('french'))
+
+    ### fill the gap (filter the dictionary 'counts' by retaining only the words that appear at least 'min_freq' times)
+    counts = {k:v for k,v in counts.items() if v>=min_freq and k not in stop_words}
+
+    with open(os.path.join(path_write, 'counts.json'), 'w') as file:
+        json.dump(counts, file, sort_keys=True, indent=4)
+
+    print('counts saved to disk')
+
+    sorted_counts = sorted(counts.items(), key=operator.itemgetter(1), reverse=True)
+
+    # assign to each word an index based on its frequency in the corpus
+    # the most frequent word will get index equal to 1
+    # 0 is reserved for out-of-vocabulary words
+    word_to_index = dict([(my_tuple[0],idx) for idx,my_tuple in enumerate(sorted_counts,1)])
+
+    with open(os.path.join(path_write, 'vocab.json'), 'w') as file:
+        json.dump(word_to_index, file, sort_keys=True, indent=4)
+
+    print('vocab saved to disk')
+    return word_to_index
+
+def documents_to_idx(documents, word_to_idx, oov_token=0, path_write='../data'):
+    documents_ints = {}
+    for i, doc in documents.items():
+        sublist = []
+        ### fill the gaps (for the tokens that are not in 'word_to_index', use 'oov_token') ###
+        for word in doc:
+            if word in word_to_idx.keys():
+                sublist.append(word_to_idx[word])
+            else:
+                sublist.append(oov_token)
+        documents_ints[i] = sublist
+    
+    with open(os.path.join(path_write, 'doc_ints.txt'), 'w') as file:
+        json.dump(documents_ints, file)
+    
+    print('documents ints saved to disk')
+
+    return documents_ints
+
+
+def tag_usefull(element):
+    if element.parent.name in ['style', 'script', 'meta', '[document]']:
+        return False
+    if isinstance(element, Comment):
+        return False
+    return True
+
+
+def text_from_html(body):
+    soup = BeautifulSoup(body, 'html.parser')
+    texts = soup.findAll(text=True)
+    visible_texts = filter(tag_usefull, texts)
+    return u" ".join(t.strip() for t in visible_texts)
+
+class TimeoutException(Exception):
+    pass
+
+
+@contextmanager
+def time_limit(seconds):
+    def signal_handler(signum, frame):
+        raise TimeoutException("Timed out!")
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)

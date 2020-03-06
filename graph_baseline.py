@@ -12,7 +12,7 @@ from sklearn.base import clone
 from sklearn.preprocessing import StandardScaler, LabelBinarizer
 from sklearn.metrics import make_scorer
 
-from utils import loss_function, visualize_embeddings, load_data
+from utils import loss_function, visualize_embeddings, load_data, make_vocab, documents_to_idx
 from graph_models.node_embedding import DeepWalk, Node2Vec
 from gensim.models import Word2Vec, Doc2Vec
 from gensim.models.doc2vec import TaggedDocument
@@ -28,6 +28,14 @@ warnings.warn = warn
 
 train_hosts, test_hosts, y_train, G = load_data('../data')
 
+# word_to_idx = make_vocab(documents)
+
+# documents_ints = documents_to_idx(documents, word_to_idx)
+
+# print(max([len(doc) for doc in documents.values()]))
+# print(np.mean([len(doc) for doc in documents.values()]))
+
+
 print(G.number_of_nodes())
 print(G.number_of_edges())
 
@@ -39,9 +47,9 @@ n_walks = 150
 walk_length = 100
 if make_embeddings:
     
-    embedder = DeepWalk(walk_length, n_walks, n_features, verbose=True)
-    embedder = Node2Vec(walk_length, n_walks, n_features, p=5, q=1, verbose=True)
-    embedder.fit(G, save_path='graph_models/node_embedding/models/node2vec.model')
+    embedder = DeepWalk(walk_length, n_walks, n_features, training_method=1, window=4, verbose=True)
+    # embedder = Node2Vec(walk_length, n_walks, n_features, p=5, q=1, verbose=True)
+    embedder.fit(G, save_path='graph_models/node_embedding/models/deepwalk.model')
     
 else:
     embedder = DeepWalk(walk_length, n_walks, n_features, load_path='graph_models/node_embedding/models/deepwalk.model')
@@ -102,11 +110,11 @@ penalties = {
     'liblinear': ['l2', 'l1'],
 }
 
-max_iters = [100, 200, 800, 900]
+max_iters = [5, 10, 30, 50]
 
-tols = [6e-2, 5e-2, 2e-2]
+tols = [5e-1, 1e-1, 1e-2]
 
-Cs = [1e-1, 8e-2, 7e-2]
+Cs = [5e-1, 1e-1, 5e-2, 1e-2]
 
 
 multi_classes_and_penalties = {}
@@ -172,13 +180,13 @@ try:
     print(clf_scaled)
     print(scores[best_clf_index])
     print(scores_scaled[best_clf_scaled_index])
-    dump(clf, 'graph_models/best_logreg_n2v.joblib')
-    dump(clf_scaled, 'graph_models/best_logreg_scaled_n2v.joblib')
+    dump(clf, 'graph_models/best_logreg.joblib')
+    dump(clf_scaled, 'graph_models/best_logreg_scaled.joblib')
     
     clf.fit(X_train, y_train)
     y_pred = clf.predict_proba(X_test)
     # Write predictions to a file
-    with open('benchmark_graph_n2v.csv', 'w') as csvfile:
+    with open('../benchmark_graph.csv', 'w') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             lst = clf.classes_.tolist()
             lst.insert(0, "Host")
@@ -193,7 +201,7 @@ try:
     scaler = StandardScaler()
     y_pred = clf_scaled.predict_proba(scaler.fit_transform(X_test))
     # Write predictions to a file
-    with open('../benchmark_graph_scaled_n2v.csv', 'w') as csvfile:
+    with open('../benchmark_graph_scaled.csv', 'w') as csvfile:
             writer = csv.writer(csvfile, delimiter=',')
             lst = clf_scaled.classes_.tolist()
             lst.insert(0, "Host")
@@ -215,13 +223,13 @@ except:
     print(clf_scaled)
     print(scores[best_clf_index])
     print(scores_scaled[best_clf_scaled_index])
-    dump(clf, 'graph_models/best_logreg_n2v.joblib')
-    dump(clf_scaled, 'graph_models/best_logreg_scaled_n2v.joblib')
+    dump(clf, 'graph_models/best_logreg.joblib')
+    dump(clf_scaled, 'graph_models/best_logreg_scaled.joblib')
     
     clf.fit(X_train, y_train)
     y_pred = clf.predict_proba(X_test)
     # Write predictions to a file
-    with open('../benchmark_graph_n2v.csv', 'w') as csvfile:
+    with open('../benchmark_graph.csv', 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')
         lst = clf.classes_.tolist()
         lst.insert(0, "Host")
@@ -236,7 +244,7 @@ except:
     scaler = StandardScaler()
     y_pred = clf_scaled.predict_proba(scaler.fit_transform(X_test))
     # Write predictions to a file
-    with open('../benchmark_graph_scaled_n2v.csv', 'w') as csvfile:
+    with open('../benchmark_graph_scaled.csv', 'w') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')
         lst = clf_scaled.classes_.tolist()
         lst.insert(0, "Host")

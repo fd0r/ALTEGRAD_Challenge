@@ -6,11 +6,13 @@ from tqdm import tqdm
 
 class DeepWalk():
 
-    def __init__(self, walk_length=80, n_walks=50, n_features=128, window=8, epochs=5, skipgram_method=1, workers=8, load_path=None, verbose=True):
+    def __init__(self, walk_length=80, n_walks=50, n_features=128, window=8, epochs=5, training_method=1, hs=1, negative=0, workers=8, load_path=None, verbose=True):
         self.walk_length = walk_length
         self.n_walks = n_walks
         self.n_features = n_features
-        self.skipgram_method = skipgram_method
+        self.training_method = training_method
+        self.hs=hs
+        self.negative=negative
         self.workers = workers
         self.window = window
         self.epochs = epochs
@@ -26,7 +28,9 @@ class DeepWalk():
             size=self.n_features,
             window=self.workers,
             min_count=0,
-            sg=self.skipgram_method,
+            sg=self.training_method,
+            hs=self.hs,
+            negative=self.negative,
             workers=8)
         self.model.build_vocab(self.walks)
         self.model.train(self.walks, total_examples=self.model.corpus_count, epochs=self.epochs)
