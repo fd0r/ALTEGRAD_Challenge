@@ -12,6 +12,7 @@ from bs4.element import Comment
 from markdown import markdown
 from nltk.tokenize import TweetTokenizer
 from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer, SnowballStemmer
 import re
 from collections import Counter
 import signal
@@ -19,8 +20,7 @@ from contextlib import contextmanager
 import json
 import operator
 import mistune
-
-
+import ijson
 
 
 def loss_function(y_true, predictions):
@@ -168,9 +168,10 @@ def make_vocab(documents, min_freq=15, path_write='../data'):
     stop_words = list(stopwords.words('english')) + list(stopwords.words('french'))
 
     ### fill the gap (filter the dictionary 'counts' by retaining only the words that appear at least 'min_freq' times)
-    counts = {k:v for k,v in counts.items() if v>=min_freq and k not in stop_words}
+    print('making counts')
+    counts = {k:v for k,v in tqdm(counts.items()) if v>=min_freq and k not in stop_words}
 
-    with open(os.path.join(path_write, 'counts.json'), 'w') as file:
+    with open(os.path.join(path_write, 'counts_stemmed.json'), 'w') as file:
         json.dump(counts, file, sort_keys=True, indent=4)
 
     print('counts saved to disk')
@@ -182,25 +183,52 @@ def make_vocab(documents, min_freq=15, path_write='../data'):
     # 0 is reserved for out-of-vocabulary words
     word_to_index = dict([(my_tuple[0],idx) for idx,my_tuple in enumerate(sorted_counts,1)])
 
-    with open(os.path.join(path_write, 'vocab.json'), 'w') as file:
+    with open(os.path.join(path_write, 'vocab_stemmed.json'), 'w') as file:
         json.dump(word_to_index, file, sort_keys=True, indent=4)
 
     print('vocab saved to disk')
     return word_to_index
 
-def documents_to_idx(documents, word_to_idx, oov_token=0, path_write='../data'):
+def clean_documents(path, nodes, stemmer=PorterStemmer()):
+
+    with open(os.path.join(path, 'vocab.json')) as file:
+        word_to_idx = json.load(file)
+
+    idx_to_word = dict((y, x) for x, y in word_to_idx.items())
+    documents_tokens = {}
+
+    print('stemming')
+    with open(os.path.join(path, 'doc_ints.json')) as file:
+        parser = ijson.parse(file)
+
+        for  prefix, event, value in parser:
+            if event == 'start_array':
+                node = prefix
+                documents_tokens[node] = []
+            elif event == 'number':
+                if value == 0:
+                    documents_tokens[node].append('<OOV>')
+                else:
+                    documents_tokens[node].append(stemmer.stem(idx_to_word[value]))
+    
+    word_to_idx = make_vocab(documents_tokens)
+    documents_to_idx(documents_tokens, word_to_idx)
+
+
+def documents_to_idx(documents, word_to_idx, oov_idx=0, path_write='../data'):
     documents_ints = {}
-    for i, doc in documents.items():
+    print('making doc to ints')
+    for i, doc in tqdm(documents.items()):
         sublist = []
         ### fill the gaps (for the tokens that are not in 'word_to_index', use 'oov_token') ###
         for word in doc:
             if word in word_to_idx.keys():
                 sublist.append(word_to_idx[word])
             else:
-                sublist.append(oov_token)
+                sublist.append(oov_idx)
         documents_ints[i] = sublist
     
-    with open(os.path.join(path_write, 'doc_ints.txt'), 'w') as file:
+    with open(os.path.join(path_write, 'doc_ints_stemmed.json'), 'w') as file:
         json.dump(documents_ints, file)
     
     print('documents ints saved to disk')

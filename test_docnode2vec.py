@@ -1,12 +1,16 @@
 import torch.nn.functional as F
 import torch.autograd as autograd
 import torch.optim as optim
-import torch.nntorch.nn  as  nn
+import torch.nn  as  nn
 import torch
 import numpy as np
 import json
 import random
 from graph_models.node_embedding import DeepWalk
+from collections import Counter
+from utils import load_data
+import ijson
+import itertools
 
 train_hosts, test_hosts, y_train, G = load_data('../data')
 
@@ -15,27 +19,50 @@ n_nodes = G.number_of_nodes()
 context_tuple_list = []
 w = 4
 
-with open('../data/vocab.json') as file:
+with open('../data/vocab_stemmed.json') as file:
     vocab = json.load(file)
 
 vocab_size = len(vocab)
 
-with open('../data/docs_ints.json') as file:
-    docs_ints = json.load(file)
+docs_ints = {}
+docs_lengths = []
+with open('../data/doc_ints_stemmed.json', 'r+') as file:
+    parser = ijson.parse(file)
+    for prefix, event, value in parser:
+        if event == 'start_array':
+            node = prefix
+            docs_ints[node] = []
+            i = 0
+            
+        elif event == 'number':
+            if value == 0:
+                docs_ints[node].append(1)
+            else:
+                docs_ints[node].append(value)
+            i += 1
+        elif event == 'end_array':
+            docs_lengths.append(i)
+
+    file.seek(0)
+    json.dump(docs_ints, file)
+    file.truncate()
+
+print(max(docs_lengths))
+print(np.mean(docs_lengths))
+print(np.median(docs_lengths))
+print('documents ints loaded')
+
 
 n_walks = 150
 walk_length = 100
 
 embedder = DeepWalk(walk_length, n_walks, verbose=True)
-embedder.generate_walks(G)
-
-walks = embedder.walks
-
+walks = embedder.generate_walks(G)
 
 def sample_negative(sample_size):
     sample_probability = {}
     node_counts = dict(Counter(list(itertools.chain.from_iterable(walks))))
-    normalizing_factor = sum([v**0.75 for v in word_counts.values()])
+    normalizing_factor = sum([v**0.75 for v in node_counts.values()])
     for node in node_counts:
         sample_probability[node] = node_counts[node]**0.75 / normalizing_factor
     nodes = np.array(list(node_counts.keys()))
@@ -51,6 +78,8 @@ def sample_negative(sample_size):
 window = 4
 negative_samples = sample_negative(8)
 
+max_words = 8000
+
 for walk in walks:
     for i, node in enumerate(walk):
         first_context_node_index = max(0, i-w)
@@ -65,7 +94,7 @@ for walk in walks:
 class NodeDoc2Vec(nn.Module):
 
     def __init__(self, embedding_size, vocab_size):
-        super(Word2Vec, self).__init__()
+        super(NodeDoc2Vec, self).__init__()
         self.embeddings_target = nn.Embedding(vocab_size, embedding_size)
         self.embeddings_context = nn.Embedding(vocab_size, embedding_size)
 
@@ -104,14 +133,17 @@ class EarlyStopping():
             return False
 
 
-def get_batches(context_tuple_list, batch_size=100):
+def get_batches(context_tuple_list, batch_size=100, max_words_per_doc=8000):
     random.shuffle(context_tuple_list)
     batches = []
     batch_target, batch_context, batch_negative = [], [], []
     for i in range(len(context_tuple_list)):
         batch_target.append(context_tuple_list[i][0])
-        batch_context.append(docs_to_ints[context_tuple_list[i][1]])
-        batch_negative.append([docs_to_ints[node] for node in context_tuple_list[i][2]])
+
+        context_words = get_words_idx_from_node(context_tuple_list[i][1])
+        
+        batch_context.append(context_words)
+        batch_negative.append([get_words_idx_from_node(node) for node in context_tuple_list[i][2]])
         if (i+1) % batch_size == 0 or i == len(context_tuple_list)-1:
             tensor_target = autograd.Variable(torch.from_numpy(np.array(batch_target)).long())
             tensor_context = autograd.Variable(torch.from_numpy(np.array(batch_context)).long())
@@ -120,6 +152,13 @@ def get_batches(context_tuple_list, batch_size=100):
             batch_target, batch_context, batch_negative = [], [], []
     return batches
 
+def get_words_idx_from_node(node, max_words_per_doc, oov_idx=1):
+    words = docs_ints[node]
+    if len(words) > max_words_per_doc:
+        words = words[:max_words_per_doc]
+    else:
+        words = words + [oov_idx]*(max_words_per_doc - len(words))
+    return words
     
 
 net = NodeDoc2Vec(embedding_size=256, vocab_size=vocab_size)

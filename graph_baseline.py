@@ -11,8 +11,7 @@ from sklearn.model_selection import train_test_split, cross_validate
 from sklearn.base import clone
 from sklearn.preprocessing import StandardScaler, LabelBinarizer
 from sklearn.metrics import make_scorer
-
-from utils import loss_function, visualize_embeddings, load_data, make_vocab, documents_to_idx
+from utils import loss_function, visualize_embeddings, load_data, make_vocab, documents_to_idx, clean_documents
 from graph_models.node_embedding import DeepWalk, Node2Vec
 from gensim.models import Word2Vec, Doc2Vec
 from gensim.models.doc2vec import TaggedDocument
@@ -32,6 +31,8 @@ train_hosts, test_hosts, y_train, G = load_data('../data')
 
 # documents_ints = documents_to_idx(documents, word_to_idx)
 
+# clean_documents('../data', [str(node) for node in G.nodes()])
+
 # print(max([len(doc) for doc in documents.values()]))
 # print(np.mean([len(doc) for doc in documents.values()]))
 
@@ -41,18 +42,19 @@ print(G.number_of_edges())
 
 
 # Node embeddings
-make_embeddings = True
+make_embeddings = False
 n_features = 256
 n_walks = 150
 walk_length = 100
+p = 0.1
 if make_embeddings:
     
-    embedder = DeepWalk(walk_length, n_walks, n_features, training_method=1, window=4, verbose=True)
+    embedder = DeepWalk(walk_length, n_walks, p, n_features, training_method=1, window=4, verbose=True)
     # embedder = Node2Vec(walk_length, n_walks, n_features, p=5, q=1, verbose=True)
-    embedder.fit(G, save_path='graph_models/node_embedding/models/deepwalk.model')
+    embedder.fit(G, save_path='graph_models/node_embedding/models/weighted_deepwalk.model')
     
 else:
-    embedder = DeepWalk(walk_length, n_walks, n_features, load_path='graph_models/node_embedding/models/deepwalk.model')
+    embedder = DeepWalk(walk_length, n_walks, p, n_features, load_path='graph_models/node_embedding/models/weighted_deepwalk.model')
 
 _visualize_embeddings = False
 
@@ -114,7 +116,13 @@ max_iters = [5, 10, 30, 50]
 
 tols = [5e-1, 1e-1, 1e-2]
 
-Cs = [5e-1, 1e-1, 5e-2, 1e-2]
+Cs = [0.78, 0.75, 0.7, 0.65]
+
+# max_iters = [50, 300, 800, 1500]
+
+# tols = [1e-1, 1e-2, 1e-3]
+
+# Cs = [1, 1e-1, 5e-2, 1e-2]
 
 
 multi_classes_and_penalties = {}
@@ -160,28 +168,28 @@ try:
                                 return_train_score=True)
         scores[i] = {'train_score': output['train_score'].mean(), 'score': output['test_score'].mean()}
 
-        scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train)
-        output_scaled = cross_validate(clf,
-                                       X_train_scaled,
-                                       y_train,
-                                       scoring=make_scorer(loss_function, needs_proba=True),
-                                       return_train_score=True)
-        scores_scaled[i] = {'train_score': output_scaled['train_score'].mean(), 'score': output_scaled['test_score'].mean()}
+        # scaler = StandardScaler()
+        # X_train_scaled = scaler.fit_transform(X_train)
+        # output_scaled = cross_validate(clf,
+        #                                X_train_scaled,
+        #                                y_train,
+        #                                scoring=make_scorer(loss_function, needs_proba=True),
+        #                                return_train_score=True)
+        # scores_scaled[i] = {'train_score': output_scaled['train_score'].mean(), 'score': output_scaled['test_score'].mean()}
 
     best_clf_index = np.argmin(list(map(lambda x: x['score'], list(scores.values()))))
-    best_clf_scaled_index = np.argmin(list(map(lambda x: x['score'], list(scores_scaled.values()))))
+    # best_clf_scaled_index = np.argmin(list(map(lambda x: x['score'], list(scores_scaled.values()))))
 
     print(best_clf_index)
-    print(best_clf_scaled_index)
+    # print(best_clf_scaled_index)
     clf = clone(classifiers[best_clf_index])
-    clf_scaled = clone(classifiers[best_clf_scaled_index])
+    # clf_scaled = clone(classifiers[best_clf_scaled_index])
     print(clf)
-    print(clf_scaled)
+    # print(clf_scaled)
     print(scores[best_clf_index])
-    print(scores_scaled[best_clf_scaled_index])
+    # print(scores_scaled[best_clf_scaled_index])
     dump(clf, 'graph_models/best_logreg.joblib')
-    dump(clf_scaled, 'graph_models/best_logreg_scaled.joblib')
+    # dump(clf_scaled, 'graph_models/best_logreg_scaled.joblib')
     
     clf.fit(X_train, y_train)
     y_pred = clf.predict_proba(X_test)
@@ -196,35 +204,35 @@ try:
                 lst.insert(0, test_host)
                 writer.writerow(lst)
 
-    scaler = StandardScaler()
-    clf_scaled.fit(scaler.fit_transform(X_train), y_train)
-    scaler = StandardScaler()
-    y_pred = clf_scaled.predict_proba(scaler.fit_transform(X_test))
-    # Write predictions to a file
-    with open('../benchmark_graph_scaled.csv', 'w') as csvfile:
-            writer = csv.writer(csvfile, delimiter=',')
-            lst = clf_scaled.classes_.tolist()
-            lst.insert(0, "Host")
-            writer.writerow(lst)
-            for i, test_host in enumerate(test_hosts):
-                lst = y_pred[i, :].tolist()
-                lst.insert(0, test_host)
-                writer.writerow(lst)
+    # scaler = StandardScaler()
+    # clf_scaled.fit(scaler.fit_transform(X_train), y_train)
+    # scaler = StandardScaler()
+    # y_pred = clf_scaled.predict_proba(scaler.fit_transform(X_test))
+    # # Write predictions to a file
+    # with open('../benchmark_graph_scaled.csv', 'w') as csvfile:
+    #         writer = csv.writer(csvfile, delimiter=',')
+    #         lst = clf_scaled.classes_.tolist()
+    #         lst.insert(0, "Host")
+    #         writer.writerow(lst)
+    #         for i, test_host in enumerate(test_hosts):
+    #             lst = y_pred[i, :].tolist()
+    #             lst.insert(0, test_host)
+    #             writer.writerow(lst)
 
 except:
     best_clf_index = np.argmin(list(map(lambda x: x['score'], list(scores.values()))))
-    best_clf_scaled_index = np.argmin(list(map(lambda x: x['score'], list(scores_scaled.values()))))
+    # best_clf_scaled_index = np.argmin(list(map(lambda x: x['score'], list(scores_scaled.values()))))
 
     print(best_clf_index)
-    print(best_clf_scaled_index)
+    # print(best_clf_scaled_index)
     clf = clone(classifiers[best_clf_index])
-    clf_scaled = clone(classifiers[best_clf_scaled_index])
+    # clf_scaled = clone(classifiers[best_clf_scaled_index])
     print(clf)
-    print(clf_scaled)
+    # print(clf_scaled)
     print(scores[best_clf_index])
-    print(scores_scaled[best_clf_scaled_index])
+    # print(scores_scaled[best_clf_scaled_index])
     dump(clf, 'graph_models/best_logreg.joblib')
-    dump(clf_scaled, 'graph_models/best_logreg_scaled.joblib')
+    # dump(clf_scaled, 'graph_models/best_logreg_scaled.joblib')
     
     clf.fit(X_train, y_train)
     y_pred = clf.predict_proba(X_test)
@@ -239,18 +247,18 @@ except:
             lst.insert(0, test_host)
             writer.writerow(lst)
 
-    scaler = StandardScaler()
-    clf_scaled.fit(scaler.fit_transform(X_train), y_train)
-    scaler = StandardScaler()
-    y_pred = clf_scaled.predict_proba(scaler.fit_transform(X_test))
-    # Write predictions to a file
-    with open('../benchmark_graph_scaled.csv', 'w') as csvfile:
-        writer = csv.writer(csvfile, delimiter=',')
-        lst = clf_scaled.classes_.tolist()
-        lst.insert(0, "Host")
-        writer.writerow(lst)
-        for i, test_host in enumerate(test_hosts):
-            lst = y_pred[i, :].tolist()
-            lst.insert(0, test_host)
-            writer.writerow(lst)
+    # scaler = StandardScaler()
+    # clf_scaled.fit(scaler.fit_transform(X_train), y_train)
+    # scaler = StandardScaler()
+    # y_pred = clf_scaled.predict_proba(scaler.fit_transform(X_test))
+    # # Write predictions to a file
+    # with open('../benchmark_graph_scaled.csv', 'w') as csvfile:
+    #     writer = csv.writer(csvfile, delimiter=',')
+    #     lst = clf_scaled.classes_.tolist()
+    #     lst.insert(0, "Host")
+    #     writer.writerow(lst)
+    #     for i, test_host in enumerate(test_hosts):
+    #         lst = y_pred[i, :].tolist()
+    #         lst.insert(0, test_host)
+    #         writer.writerow(lst)
 

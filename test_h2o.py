@@ -13,7 +13,8 @@ train_hosts, test_hosts, y_train, G = load_data('../data')
 n_features = 256
 n_walks = 150
 walk_length = 100
-embedder = DeepWalk(walk_length, n_walks, n_features, load_path='graph_models/node_embedding/models/deepwalk.model')
+p = 0.1
+embedder = DeepWalk(walk_length, n_walks, p, n_features, load_path='graph_models/node_embedding/models/weighted_deepwalk.model')
 
 in_degrees = []
 out_degrees = []
@@ -81,25 +82,25 @@ hyperparams = {
 }
 # rf = H2ORandomForestEstimator(**params_rf)
 # gb = H2OGradientBoostingEstimator(**params_gb)
-xgb = H2OXGBoostEstimator(**params_xgb)
+# xgb = H2OXGBoostEstimator(**params_xgb)
 # linear = H2OGeneralizedLinearEstimator(**params_linear)
-# time_per_model = 300
-# aml = H2OAutoML(max_runtime_secs_per_model=time_per_model, sort_metric='logloss', balance_classes=True)
+time_per_model = 600
+aml = H2OAutoML(max_runtime_secs_per_model=time_per_model, sort_metric='logloss', balance_classes=True)
 # gs = H2OGridSearch(linear, hyperparams)
 # X_train, X_valid = X_train.split_frame(ratios=[0.8])
 
 # rf.train(x=X_train.columns[:-2], y=X_train.columns[-1], training_frame=X_train, validation_frame=X_valid)
 # gb.train(x=X_train.columns[:-2], y=X_train.columns[-1], training_frame=X_train)
-xgb.train(x=X_train.columns[:-2], y=X_train.columns[-1], training_frame=X_train)#, validation_frame=X_valid)
+# xgb.train(x=X_train.columns[:-2], y=X_train.columns[-1], training_frame=X_train)#, validation_frame=X_valid)
 # gs.train(x=X_train.columns[:-2], y=X_train.columns[-1], training_frame=X_train, validation_frame=X_valid)
-# aml.train(x=X_train.columns[:-1], y=X_train.columns[-1], training_frame=X_train)
+aml.train(x=X_train.columns[:-1], y=X_train.columns[-1], training_frame=X_train)
 # print(rf.logloss(train=True, valid=True))
 # print(gb.logloss(train=True, xval=True))
-print(xgb.logloss(train=True, xval=True))
+# print(xgb.logloss(train=True, xval=True))
 #print(linear.logloss(train=True, valid=True))
 # gs.show()
-# aml.download_mojo('./graph_models/best_autoML'+str(time_per_model)+'secs_n2v.MOJO')
-# print(aml.leaderboard)
+aml.download_mojo('./graph_models/best_autoML'+str(time_per_model)+'secs_n2v.MOJO')
+print(aml.leaderboard)
 
 # model = h2o.import_mojo('./graph_models/best_autoML300secs.MOJO')
 # preds = xgb.predict(h2o.H2OFrame(embedder.transform(test_hosts)))
