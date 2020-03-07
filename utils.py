@@ -104,7 +104,7 @@ def load_data(path='./', text=False, max_time_per_doc=30):
         return train_hosts, test_hosts, y_train, G, documents
     return train_hosts, test_hosts, y_train, G
 
-def get_raw_data(encoding="utf-8"):  #'latin-1'
+def get_raw_data(encoding="utf-8", errors='ignore'):  #'latin-1'
     # Read training data
     with open("train.csv", 'r') as f:
         train_data = f.read().splitlines()
@@ -128,7 +128,7 @@ def get_raw_data(encoding="utf-8"):  #'latin-1'
     text = dict()
     filenames = os.listdir('text/text')
     for filename in tqdm(filenames):
-        with codecs.open(os.path.join('text/text/', filename), encoding=encoding) as f: 
+        with codecs.open(os.path.join('text/text/', filename), encoding=encoding, errors=errors) as f: 
             text[filename] = f.read().replace("\n", "").lower()
 
     train_data = list()
@@ -264,3 +264,19 @@ def time_limit(seconds):
         yield
     finally:
         signal.alarm(0)
+
+
+class TokenToIndex:
+    def __init__(self):
+        self.vocab_to_index = dict()
+        self.index_to_index = dict()
+
+    def fit(self, X, y=None):
+        counter = 0
+        for tokens in X:
+            for token in tokens:
+                pass
+        return self
+
+    def transform(self, X, y):
+        return X
