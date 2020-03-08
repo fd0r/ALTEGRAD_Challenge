@@ -46,7 +46,7 @@ make_embeddings = False
 n_features = 256
 n_walks = 150
 walk_length = 100
-p = 0.1
+p = 0.
 if make_embeddings:
     
     embedder = DeepWalk(walk_length, n_walks, p, n_features, training_method=1, window=4, verbose=True)
@@ -114,9 +114,9 @@ penalties = {
 
 max_iters = [5, 10, 30, 50]
 
-tols = [5e-1, 1e-1, 1e-2]
+tols = [5e-1]#, 1e-1, 1e-2]
 
-Cs = [0.78, 0.75, 0.7, 0.65]
+Cs = [0.7, 0.5]
 
 # max_iters = [50, 300, 800, 1500]
 
