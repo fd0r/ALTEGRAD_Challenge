@@ -3,10 +3,11 @@ import h2o
 from h2o.grid.grid_search import H2OGridSearch
 from h2o.automl import H2OAutoML
 from h2o.estimators import H2OGeneralizedLinearEstimator, H2ORandomForestEstimator, H2OGradientBoostingEstimator, H2OXGBoostEstimator
-h2o.init()
-from graph_models.node_embedding import DeepWalk, Node2Vec
+from models import DeepWalk, Node2Vec
 from utils import loss_function, load_data
 import pandas
+
+h2o.init()
 
 train_hosts, test_hosts, y_train, G = load_data('../data')
 
@@ -80,6 +81,8 @@ hyperparams = {
     # 'balance_classes': [True, False],
     #'weights_column': ['', X_train.columns[-2]],
 }
+
+#### Uncomment the models you want to train
 # rf = H2ORandomForestEstimator(**params_rf)
 # gb = H2OGradientBoostingEstimator(**params_gb)
 # xgb = H2OXGBoostEstimator(**params_xgb)
@@ -102,6 +105,8 @@ aml.train(x=X_train.columns[:-1], y=X_train.columns[-1], training_frame=X_train)
 aml.download_mojo('./graph_models/best_autoML'+str(time_per_model)+'secs_n2v.MOJO')
 print(aml.leaderboard)
 
+
+## Writing preds
 # model = h2o.import_mojo('./graph_models/best_autoML300secs.MOJO')
 # preds = xgb.predict(h2o.H2OFrame(embedder.transform(test_hosts)))
 # preds = preds.as_data_frame()
