@@ -25,7 +25,7 @@ def warn(*args, **kwargs):
 
 warnings.warn = warn
 
-train_hosts, test_hosts, y_train, G = load_data('../data')
+train_hosts, test_hosts, y_train, G = load_data()
 
 # word_to_idx = make_vocab(documents)
 
@@ -48,7 +48,6 @@ n_walks = 150
 walk_length = 100
 p = 0.
 if make_embeddings:
-    
     embedder = DeepWalk(walk_length, n_walks, p, n_features, training_method=1, window=4, verbose=True)
     # embedder = Node2Vec(walk_length, n_walks, n_features, p=5, q=1, verbose=True)
     embedder.fit(G, save_path='graph_models/node_embedding/models/weighted_deepwalk.model')
@@ -261,4 +260,3 @@ except:
     #         lst = y_pred[i, :].tolist()
     #         lst.insert(0, test_host)
     #         writer.writerow(lst)
-
