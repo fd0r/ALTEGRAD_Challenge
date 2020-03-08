@@ -18,6 +18,8 @@ train_hosts, test_hosts, y_train, G = load_data('../data')
 
 n_nodes = G.number_of_nodes()
 
+print(n_nodes)
+
 context_tuple_list = []
 w = 2
 
@@ -98,7 +100,7 @@ print(len(context_tuple_list))
 #         return -out
 
 
-class NodeDoc2Vec(nn.Module):
+class DocNode2Vec(nn.Module):
 
     def __init__(self, node_embedding_size, nodes_size, word_embedding_size, vocab_size):
         super(NodeDoc2Vec, self).__init__()
@@ -169,7 +171,7 @@ def get_words_idx_from_node(node, n_words_per_doc, oov_idx=1):
     
 
 n_words_per_doc = 1000
-net = NodeDoc2Vec(node_embedding_size=128, nodes_size=len(docs_ints),
+net = DocNode2Vec(node_embedding_size=128, nodes_size=n_nodes,
                   word_embedding_size=128, vocab_size=vocab_size)
 loss_function = nn.CrossEntropyLoss()
 optimizer = optim.Adam(net.parameters())

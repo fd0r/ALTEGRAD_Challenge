@@ -16,7 +16,7 @@ from graph_models.node_embedding import DeepWalk, Node2Vec
 from gensim.models import Word2Vec, Doc2Vec
 from gensim.models.doc2vec import TaggedDocument
 from sklearn.feature_extraction.text import TfidfVectorizer
-
+import os
 import warnings
 from joblib import dump, load
 
@@ -26,6 +26,12 @@ def warn(*args, **kwargs):
 warnings.warn = warn
 
 train_hosts, test_hosts, y_train, G = load_data('../data')
+
+nodes = [str(node) for node in G.nodes()]
+filenames = os.listdir('../data/text')
+
+print([node for node in nodes if node not in filenames])
+print([node for node in filenames if node not in nodes])
 
 # word_to_idx = make_vocab(documents)
 
@@ -54,7 +60,7 @@ if make_embeddings:
     embedder.fit(G, save_path='graph_models/node_embedding/models/weighted_deepwalk.model')
     
 else:
-    embedder = DeepWalk(walk_length, n_walks, p, n_features, load_path='graph_models/node_embedding/models/weighted_deepwalk.model')
+    embedder = DeepWalk(walk_length, n_walks, p, n_features, load_path='graph_models/node_embedding/models/deepwalk.model')
 
 _visualize_embeddings = False
 
