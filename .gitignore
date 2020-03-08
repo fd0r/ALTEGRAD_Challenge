@@ -4,7 +4,7 @@ edgelist.txt
 
 .ipynb_checkpoints/
 
-__pycache__/
+*__pycache__/
 
 .~fasttext.ipynb
 *.DS_Store

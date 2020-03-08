@@ -73,22 +73,12 @@ def load_data(path='./', text=False, max_time_per_doc=30):
 
     if text==True:
         documents = dict()
-        filenames = os.listdir(os.path.join(path, 'text'))
+        filenames = os.listdir(os.path.join(path, 'text/text'))
 
         tokenizer = TweetTokenizer()
         print('Loading text documents')
         for filename in tqdm(filenames):
-                # try:
-                #     with codecs.open(os.path.join(path, 'text/', filename), encoding='UTF-8') as f:
-                #         try:
-                #             with time_limit(max_time_per_doc):
-                #                 html = mistune.html(f.read())
-                #                 print(BeautifulSoup(html))
-                #                 documents[filename] = tokenizer.tokenize(re.sub(' +', ' ', text_from_html(html)))
-                #         except TimeoutException:
-                #             print(filename)
-                #             documents[filename] = ['']
-            with codecs.open(os.path.join(path, 'text/', filename), encoding='latin-1') as f: 
+            with codecs.open(os.path.join(path, 'text/text/', filename), encoding='latin-1') as f: 
                 try:
                     with time_limit(max_time_per_doc):
                         html = mistune.markdown(f.read())

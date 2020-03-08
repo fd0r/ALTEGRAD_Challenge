@@ -12,7 +12,7 @@ from sklearn.base import clone
 from sklearn.preprocessing import StandardScaler, LabelBinarizer
 from sklearn.metrics import make_scorer
 from utils import loss_function, visualize_embeddings, load_data, make_vocab, documents_to_idx, clean_documents
-from graph_models.node_embedding import DeepWalk, Node2Vec
+from models import DeepWalk, Node2Vec
 from gensim.models import Word2Vec, Doc2Vec
 from gensim.models.doc2vec import TaggedDocument
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -48,7 +48,7 @@ print(G.number_of_edges())
 
 
 # Node embeddings
-make_embeddings = Falsepuyt
+make_embeddings = False
 n_features = 256
 n_walks = 150
 walk_length = 100
